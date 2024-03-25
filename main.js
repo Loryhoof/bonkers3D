@@ -61,6 +61,8 @@ audioLoader.load( '/audio/grass_step2.mp3', function( buffer ) {
 	grass_step_sound.setVolume( 0.2 );
 });
 
+let runtime = []
+
 
 
 //////////////////////
@@ -266,6 +268,45 @@ player.hunger = 100;
 //player.add(gun)
 //console.log(gun)
 
+for (let i = 0; i < 0; i++) {
+    let geo = new THREE.CylinderGeometry(0.5, 0.5, 1.8, 32);
+    let mat = new THREE.MeshStandardMaterial({color: 0x00ff00});
+
+    // Player mesh
+    let obj = new THREE.Mesh(geo, mat);
+
+    obj.health = 100
+    obj.canTakeDamage = true
+
+    scene.add(obj)
+
+    obj.position.set(randomBetween(-50, 50), 1.8, randomBetween(-50, 50))
+
+    obj.update = () => {
+        let dir = player.position.clone().sub(obj.position).normalize()
+        dir.y = 0
+        obj.position.add(dir.multiplyScalar(0.01))
+    }
+
+    obj.damage = (dmg) => {
+        if(obj.health > 0) {
+          obj.health -= dmg
+          console.log(obj.health)
+        }
+        else {
+            obj.doDie()
+        }
+    }
+
+    obj.doDie = () => {
+        scene.remove(obj)
+    }
+
+    runtime.push(obj)
+
+
+}
+
 
 
 
@@ -280,10 +321,65 @@ loader.load(
         scene.add( model );
 
         gun = model
-        gun.ammo = 12
+        gun.ammo = 15
 
         gun.slide = gun.getObjectByName('Slide')
         console.log(gun.slide)
+    },
+    // Optional progress callback
+    function ( xhr ) {
+        console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+    },
+    // Optional error callback
+    function ( error ) {
+        console.error( 'Error loading GLB model', error );
+    }
+);
+
+loader.load(
+    'models/person.glb',
+    function ( gltf ) {
+
+        for (let i = 0; i < 10; i++) {
+            let obj = gltf.scene.clone()
+            scene.add( obj );
+
+
+            obj.head = obj.getObjectByName('Head')
+            obj.health = 100
+            obj.canTakeDamage = true
+
+
+            obj.position.set(randomBetween(-50, 50), 0.5, randomBetween(-50, 50))
+
+            obj.update = () => {
+                if(obj.health <= 0) {
+                    obj.doDie()
+                }
+                obj.lookAt(player.position.clone().setY(0))
+                
+                let dir = player.position.clone().sub(obj.position).normalize()
+                dir.y = 0
+                obj.position.add(dir.multiplyScalar(0.01))
+            }
+
+            obj.damage = (dmg) => {
+                if(obj.health > 0) {
+                    obj.health -= dmg
+                    console.log(obj.health)
+                }
+                else {
+                    obj.doDie()
+                }
+            }
+
+            obj.doDie = () => {
+                runtime.splice(runtime.indexOf(obj), 1)
+                scene.remove(obj)
+            }
+
+            runtime.push(obj)
+        }
     },
     // Optional progress callback
     function ( xhr ) {
@@ -408,7 +504,8 @@ const handleUI = () => {
     FPS: ${fps}<br>
     Position: ${Math.floor(player.position.x)}, ${Math.floor(player.position.y)}, ${Math.floor(player.position.z)}<br>
     Health: ${player.health}<br>
-    Ammo: ${gun ? gun.ammo : 0} / 12 (R to reload)`;
+    Ammo: ${gun ? gun.ammo : 0} / 15 (R to reload)<br>
+    Entities: ${runtime.length}`;
 
 
 }
@@ -439,6 +536,9 @@ const updateCamera = () => {
 
 const recoilAmount = 0.05; // Adjust the recoil amount as needed
 const recoilDirection = new THREE.Vector3(0, 0, 1); // Adjust the recoil direction as needed
+let verticalRecoilAmount = (Math.PI / 18) / 4
+
+let hasAppliedRecoil = false; 
 
 const doShoot = () => {
     if (gun && gun.ammo <= 0) {
@@ -461,6 +561,15 @@ const doShoot = () => {
 
         scene.add(cube);
 
+        if(intersects[0].object.parent.canTakeDamage) {
+            if(intersects[0].object.name == "Head") {
+                intersects[0].object.parent.damage(100)
+            }
+            else {
+                intersects[0].object.parent.damage(20)
+            }
+        } 
+
         if (pistol_shoot_sound.isPlaying || bullet_impact_sound.isPlaying) {
             pistol_shoot_sound.stop();
             bullet_impact_sound.stop();
@@ -475,9 +584,18 @@ const doShoot = () => {
 
         const initialSlidePosition = gun.slide.position.clone();
         gun.slide.position.add(recoilVector)
+
+        let initialCameraRotationX = new THREE.Vector3()
+
+        if (!hasAppliedRecoil) {
+            initialCameraRotationX = camera.rotation.x;
+            hasAppliedRecoil = true;
+            camera.rotateX(verticalRecoilAmount);
+        }
         
         setTimeout(() => {
             gun.slide.position.copy(initialSlidePosition)
+            hasAppliedRecoil = false
         }, 50)
 
         gun.ammo -= 1;
@@ -487,7 +605,7 @@ const doShoot = () => {
 
 const doReload = () => {
     if(gun) {
-        gun.ammo = 12
+        gun.ammo = 15
         console.log("reloading")
 
         if(pistol_reload_sound.isPlaying) {
@@ -508,6 +626,14 @@ const doReload = () => {
     }
 }
 
+const handleWorld = () => {
+    for (let i = 0; i < runtime.length; i++) {
+        runtime[i].update()
+        //console.log(runtime[i])
+    }
+}
+
+
 function animate() {
     requestAnimationFrame(animate);
 
@@ -520,6 +646,8 @@ function animate() {
     updateCamera();
 
     handleDebug();
+
+    handleWorld()
 
     if (gun) {
         let target = new THREE.Vector3().copy(handOffset);
@@ -541,6 +669,7 @@ function animate() {
 
     renderer.render(scene, camera);
 }
+
 
 
 animate();
