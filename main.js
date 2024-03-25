@@ -30,32 +30,32 @@ const grass_step_sound = new THREE.Audio(listener);
 
 const audioLoader = new THREE.AudioLoader();
 
-audioLoader.load( 'audio/pistol_shot_2.mp3', function( buffer ) {
+audioLoader.load( 'src/audio/pistol_shot_2.mp3', function( buffer ) {
 	pistol_shoot_sound.setBuffer( buffer );
 	pistol_shoot_sound.setLoop( false );
 	pistol_shoot_sound.setVolume( 0.3 );
 });
 
-audioLoader.load( 'audio/ambience.mp3', function( buffer ) {
+audioLoader.load( 'src/audio/ambience.mp3', function( buffer ) {
 	ambience_sound.setBuffer( buffer );
 	ambience_sound.setLoop( true );
 	ambience_sound.setVolume( 0.225 );
     ambience_sound.play()
 });
 
-audioLoader.load( 'audio/reload.mp3', function( buffer ) {
+audioLoader.load( 'src/audio/reload.mp3', function( buffer ) {
 	pistol_reload_sound.setBuffer( buffer );
 	pistol_reload_sound.setLoop( false );
 	pistol_reload_sound.setVolume( 0.75 );
 });
 
-audioLoader.load( 'audio/impact2.mp3', function( buffer ) {
+audioLoader.load( 'src/audio/impact2.mp3', function( buffer ) {
 	bullet_impact_sound.setBuffer( buffer );
 	bullet_impact_sound.setLoop( false );
 	bullet_impact_sound.setVolume( 0.4 );
 });
 
-audioLoader.load( 'audio/grass_step2.mp3', function( buffer ) {
+audioLoader.load( 'src/audio/grass_step2.mp3', function( buffer ) {
 	grass_step_sound.setBuffer( buffer );
 	grass_step_sound.setLoop( false );
 	grass_step_sound.setVolume( 0.2 );
@@ -126,7 +126,7 @@ cube.position.x = 5
 scene.add(cube)
 
 
-const texture = new THREE.TextureLoader().load( "/grass.jpg" );
+const texture = new THREE.TextureLoader().load( "src/grass.jpg" );
 texture.wrapS = THREE.RepeatWrapping;
 texture.wrapT = THREE.RepeatWrapping;
 texture.repeat.set( 200, 200 );
@@ -274,7 +274,7 @@ let playerVelocity = new THREE.Vector3();
 
 
 loader.load(
-    'models/gun.glb',
+    'src/models/gun.glb',
     function ( gltf ) {
         let model = gltf.scene
         scene.add( model );
