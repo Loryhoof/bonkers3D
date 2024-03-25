@@ -274,13 +274,16 @@ let playerVelocity = new THREE.Vector3();
 
 
 loader.load(
-    'models/gun.glb',
+    'models/gun3.glb',
     function ( gltf ) {
         let model = gltf.scene
         scene.add( model );
 
         gun = model
-        gun.ammo = 12 
+        gun.ammo = 12
+
+        gun.slide = gun.getObjectByName('Slide')
+        console.log(gun.slide)
     },
     // Optional progress callback
     function ( xhr ) {
@@ -434,8 +437,8 @@ const updateCamera = () => {
  
 };
 
-const recoilAmount = 0.1; // Adjust the recoil amount as needed
-const recoilDirection = new THREE.Vector3(0, 0, -1); // Adjust the recoil direction as needed
+const recoilAmount = 0.05; // Adjust the recoil amount as needed
+const recoilDirection = new THREE.Vector3(0, 0, 1); // Adjust the recoil direction as needed
 
 const doShoot = () => {
     if (gun && gun.ammo <= 0) {
@@ -470,6 +473,13 @@ const doShoot = () => {
         const recoilVector = recoilDirection.clone().multiplyScalar(recoilAmount);
         gun.position.add(recoilVector);
 
+        const initialSlidePosition = gun.slide.position.clone();
+        gun.slide.position.add(recoilVector)
+        
+        setTimeout(() => {
+            gun.slide.position.copy(initialSlidePosition)
+        }, 50)
+
         gun.ammo -= 1;
     }
 };
@@ -483,7 +493,18 @@ const doReload = () => {
         if(pistol_reload_sound.isPlaying) {
             pistol_reload_sound.stop()
         }
+
         pistol_reload_sound.play()
+
+        const recoilVector = recoilDirection.clone().multiplyScalar(0.06);
+        const initialSlidePosition = gun.slide.position.clone();
+
+        //gun.slide.position.add(new THREE.Vector3(0,0,-1));
+        gun.slide.position.add(recoilVector)
+        
+        setTimeout(() => {
+            gun.slide.position.copy(initialSlidePosition)
+        }, 600)
     }
 }
 
