@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>bonkers v1</title>
+    <style>
+        body { 
+            margin: 0; 
+            position: relative; /* Ensure proper positioning of overlay text */
+        }
+        #infoText {
+            position: absolute; /* Position the text relative to the body */
+            top: 10px; /* Adjust the distance from the top */
+            left: 10px; /* Adjust the distance from the left */
+            color: white; /* Text color */
+            font-size: 20px; /* Adjust font size */
+            font-family: Arial, sans-serif; /* Adjust font family */
+            z-index: 9999; /* Ensure the text is on top of other elements */
+        }
+    </style>
+</head>
+<body>
+    <div id="infoText">Your Overlay Text Here</div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/20.0.0/tween.umd.js"></script>
+    <script type="module" src="/main.js"></script>
+</body>
+</html>
