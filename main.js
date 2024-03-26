@@ -12,6 +12,7 @@ import { degToRad } from 'three/src/math/MathUtils';
 import { createPistol } from './pistol';
 import { createHatchet } from './hatchet';
 import { createBullet } from './bullet';
+import { createWood } from './wood';
 
 const scene = new THREE.Scene()
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
@@ -236,7 +237,7 @@ player.isSprinting = false;
 
 let pistol = await createPistol(15, raycaster, camera, scene)
 let hatchet = await createHatchet(raycaster, camera, scene)
-let bullet = await createBullet(64)
+let bullet = createBullet(64)
 
 world.push(hatchet)
 world.push(pistol)
@@ -372,7 +373,7 @@ loader.load(
                     player.inventory["Wood"].quantity = player.inventory["Wood"].quantity + 20
                 }
                 else {
-                    player.inventory["Wood"] = { quantity: 20, image: 'items/wood.jpg', passive: true }
+                    player.inventory["Wood"] = createWood(20)
                     for(let i = 0; i < hotBar.length; i++) {
                         if(hotBar[i] == null) {
                             hotBar[i] = player.inventory["Wood"]
@@ -629,14 +630,14 @@ const switchSlot = (slot) => {
 
     selectedSlot = slot
     selectedItem = hotBar[selectedSlot]
-    console.log(player)
     selectedItem.setActive(true, player)
 }
 
 
 const doReload = () => {
+    // convoluted as shit
     if(selectedItem && selectedItem.item_type === "firearm" && player.inventory["Bullet"]) {
-        if(!selectedItem.isReloading) {
+        if(!selectedItem.isReloading && selectedItem.ammo < selectedItem.maxAmmo) {
             selectedItem.reload(player.inventory["Bullet"])
         }
     }

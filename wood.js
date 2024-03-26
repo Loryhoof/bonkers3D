@@ -1,11 +1,11 @@
-export function createBullet(
+export function createWood(
     quantity 
 ) {
     return {
-        name: "Bullet",
+        name: "Wood",
         quantity: quantity,
-        item_type: "ammo",
-        image: 'items/bullet.jpg',
+        item_type: "resources",
+        image: 'items/wood.jpg',
         passive: true,
 
         update(time, elapsedTime) {
