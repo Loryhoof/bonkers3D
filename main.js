@@ -5,12 +5,13 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { randomBetween } from './utils';
 import { sky } from './sky';
-import { listener, pistol_shoot_sound, pistol_reload_sound, bullet_impact_sound, grass_step_sound, tree_fall_sound } from './AudioManager';
+import { listener, grass_step_sound, tree_fall_sound } from './AudioManager';
 import createEnemyPrefab from './Enemy';
 import { groundMaterial } from './ground';
 import { degToRad } from 'three/src/math/MathUtils';
 import { createPistol } from './pistol';
 import { createHatchet } from './hatchet';
+import { createBullet } from './bullet';
 
 const scene = new THREE.Scene()
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
@@ -235,19 +236,21 @@ player.isSprinting = false;
 
 let pistol = await createPistol(15, raycaster, camera, scene)
 let hatchet = await createHatchet(raycaster, camera, scene)
-world.push(pistol)
+let bullet = await createBullet(64)
+
 world.push(hatchet)
+world.push(pistol)
 
 player.inventory = {
-    "Bullet": { quantity: 64, image: 'items/bullet.jpg', passive: true },
+    "Bullet": bullet,
     "Pistol": pistol,
     "Hatchet": hatchet
 }
 
-let hotBar = Array(9).fill(null);
+let hotBar = Array(6).fill(null);
 hotBar[0] = player.inventory["Pistol"]
 hotBar[1] = player.inventory["Hatchet"]
-hotBar[8] = player.inventory["Bullet"]
+hotBar[5] = player.inventory["Bullet"]
 let selectedSlot = -1;
 let selectedItem = null;
 
@@ -632,7 +635,7 @@ const switchSlot = (slot) => {
 
 
 const doReload = () => {
-    if(selectedItem && selectedItem.item_type === "firearm" && player.inventory["Bullet"].quantity > 0) {
+    if(selectedItem && selectedItem.item_type === "firearm" && player.inventory["Bullet"]) {
         if(!selectedItem.isReloading) {
             selectedItem.reload(player.inventory["Bullet"])
         }
@@ -643,6 +646,18 @@ const handleWorld = (delta, elapsedTime) => {
     for (let i = 0; i < world.length; i++) {
         world[i].update(delta, elapsedTime)
         //console.log(world[i])
+    }
+}
+
+const handleInventory = () => {
+    for (let key in player.inventory) {
+        let item = player.inventory[key]
+        let quantity = item.quantity
+        
+        if(quantity <= 0) {
+            hotBar[hotBar.indexOf(item)] = null
+            delete player.inventory[key]
+        }
     }
 }
 
@@ -667,6 +682,8 @@ function animate() {
     handleDebug();
 
     handleMovement(deltaTime, elapsedTime); // should be before handleWorld of else camera lag
+
+    handleInventory() // bad name/place I think, but okay for now
 
     handleWorld(deltaTime, elapsedTime)
 
