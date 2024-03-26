@@ -31,6 +31,72 @@ let world = []
 
 // UI
 const infoText = document.getElementById("infoText");
+const hotbarItems = document.querySelectorAll('.hotBarItem');
+
+window.addEventListener('contextmenu', (event) => {
+    event.preventDefault(); // Prevent the default context menu
+});
+
+let draggedItem = null
+// Add dragstart event listener to each hotbar item
+
+let draggedIndex = null;
+
+// Add dragstart event listener to each hotbar item
+// Add dragstart event listener to each hotbar item
+hotbarItems.forEach((item, index) => {
+    item.addEventListener('dragstart', (event) => {
+        // Store the index of the dragged item
+
+        draggedItem = hotBar[index];
+        draggedIndex = index;
+    });
+});
+
+// Convert NodeList to Array
+const hotbarArray = Array.from(hotbarItems);
+
+// Function to handle drop event
+function handleDrop(event) {
+    event.preventDefault();
+    // Retrieve the index of the drop target
+    const dropIndex = hotbarArray.indexOf(event.target);
+    // Ensure both draggedIndex and dropIndex are valid
+    if (draggedIndex !== null && dropIndex !== -1) {
+        // Remove the dragged item from its original position
+        const draggedItem = hotBar[draggedIndex];
+        hotBar[draggedIndex] = null; // Clear the original slot
+        // Insert the dragged item at the drop index
+        hotBar[dropIndex] = draggedItem;
+
+        // Update the UI to reflect the changes
+        //updateHotbarUI();
+
+        // Reset dragged index
+        draggedIndex = null;
+    }
+}
+
+
+
+
+// Add event listeners for dragover and drop events
+hotbarArray.forEach((item) => {
+    item.addEventListener('dragover', (event) => {
+        event.preventDefault();
+    });
+    item.addEventListener('drop', handleDrop);
+});
+
+// Function to update the UI based on the hotbar array
+
+
+
+
+
+
+
+
 
 // constants
 const dragFactor = 0.99;
@@ -65,6 +131,10 @@ let isShooting = false
 let leftMouse = false
 let rightMouse = false
 
+// hotbarItems.forEach((item) => {
+//     //console.log(item)
+//     item.style.border =  '2px solid'
+// })
 
 
 //box
@@ -168,7 +238,7 @@ world.push(pistol)
 world.push(hatchet)
 
 player.inventory = {
-    "Bullet": { quantity: 500 },
+    "Bullet": { quantity: 64, image: 'items/bullet.jpg', passive: true },
     "Pistol": pistol,
     "Hatchet": hatchet
 }
@@ -176,6 +246,7 @@ player.inventory = {
 let hotBar = Array(9).fill(null);
 hotBar[0] = player.inventory["Pistol"]
 hotBar[1] = player.inventory["Hatchet"]
+hotBar[8] = player.inventory["Bullet"]
 let selectedSlot = -1;
 let selectedItem = null;
 
@@ -198,6 +269,26 @@ loader.load(
     'models/stone.glb',
     function ( gltf ) {
         for(let i = 0; i < 50; i++) {
+            let model = gltf.scene.clone()
+            scene.add( model );
+
+            model.position.set(randomBetween(-100, 100), 0.5, randomBetween(-100, 100))
+        }
+    },
+    // Optional progress callback
+    function ( xhr ) {
+        console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+    },
+    // Optional error callback
+    function ( error ) {
+        console.error( 'Error loading GLB model', error );
+    }
+);
+
+loader.load(
+    'models/house.glb',
+    function ( gltf ) {
+        for(let i = 0; i < 10; i++) {
             let model = gltf.scene.clone()
             scene.add( model );
 
@@ -277,7 +368,13 @@ loader.load(
                     player.inventory["Wood"].quantity = player.inventory["Wood"].quantity + 20
                 }
                 else {
-                    player.inventory["Wood"] = { quantity: 20 }
+                    player.inventory["Wood"] = { quantity: 20, image: 'items/wood.jpg', passive: true }
+                    for(let i = 0; i < hotBar.length; i++) {
+                        if(hotBar[i] == null) {
+                            hotBar[i] = player.inventory["Wood"]
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -454,10 +551,42 @@ const handleUI = () => {
     FPS: ${fps}<br>
     Position: ${Math.floor(player.position.x)}, ${Math.floor(player.position.y)}, ${Math.floor(player.position.z)}<br>
     Health: ${player.health}<br>
-    Ammo: ${gun ? gun.ammo : 0} / 15 (R to reload)<br>
     Entities: ${world.length}<br>
-    ${inventoryInfo}
-    Selected: ${selectedItem ? selectedItem.name : "Nothing"}`;
+    ${inventoryInfo}`;
+
+    
+    hotBar.forEach((item, index) => {
+        const hotBarItem = hotbarItems[index];
+        if (item) {
+            if (selectedSlot == index) {
+                hotBarItem.style.border = '2px solid black';
+            } else {
+                hotBarItem.style.border = 'none';
+            }
+            
+            hotBarItem.innerHTML = `
+                <img src="${item.image}" alt="Item ${index + 1}" style="object-fit: contain; width: 100%; height: 100%;">`;
+           
+            const itemAmount = document.createElement('span');
+            itemAmount.className = 'itemAmount';
+
+            let numToDisplay = 0;
+            if(item.item_type == "firearm") {
+                numToDisplay = item.ammo
+            } else {
+                numToDisplay = item.quantity > 1 ? item.quantity : ''
+            }
+            itemAmount.textContent = numToDisplay;
+            hotBarItem.appendChild(itemAmount);
+        } else {
+            
+            hotBarItem.innerHTML = '';
+            hotBarItem.style.border = 'none';
+        }
+    });
+    
+    
+    
 }
 
 
@@ -480,10 +609,15 @@ const handlePhysics = (deltaTime) => {
 }
 
 const switchSlot = (slot) => {
+    if(hotBar[slot] && hotBar[slot].passive) {
+        return
+    }
+
     if(!hotBar[slot]) {
         if(selectedItem) {
             selectedItem.setActive(false)
             selectedItem = null
+            selectedSlot = -1
         }
         return
     }
@@ -690,6 +824,10 @@ window.addEventListener("keydown", (event) => {
     }
     if (keyPressed === "shift") {
         keyShift = true;
+    }
+
+    if (keyPressed === "tab") {
+        exitPointerLock()
     }
 
 

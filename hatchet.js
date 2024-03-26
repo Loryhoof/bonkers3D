@@ -44,6 +44,7 @@ export async function createHatchet(
         model: gunModel,
         owner: null,
         holding: false,
+        image: 'items/hatchet.jpg',
 
         use() {
             if(swinging || hitAnim.isRunning()) {

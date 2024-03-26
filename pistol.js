@@ -39,6 +39,7 @@ export async function createPistol(
         isAds: false,
         model: gunModel,
         owner: null,
+        image: 'items/pistol.jpg',
 
         shoot() {
             if (this.ammo > 0) {
