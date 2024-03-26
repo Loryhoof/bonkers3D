@@ -1,8 +1,15 @@
 import * as THREE from 'three';
+import CSM from 'three-csm';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { randomBetween } from './utils';
+import { sky } from './sky';
+import { listener, pistol_shoot_sound, pistol_reload_sound, bullet_impact_sound, grass_step_sound, tree_fall_sound } from './AudioManager';
+import createEnemyPrefab from './Enemy';
+import { groundMaterial } from './ground';
+import { degToRad } from 'three/src/math/MathUtils';
+import { createPistol } from './pistol';
 
 const scene = new THREE.Scene()
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
@@ -16,66 +23,16 @@ document.body.appendChild (renderer.domElement)
 const loader = new GLTFLoader();
 
 const raycaster = new THREE.Raycaster();
-const listener = new THREE.AudioListener();
+
 camera.add(listener);
 
-
-//sounds
-
-const pistol_shoot_sound = new THREE.Audio(listener);
-const pistol_reload_sound = new THREE.Audio(listener);
-const bullet_impact_sound = new THREE.Audio(listener);
-const ambience_sound = new THREE.Audio(listener);
-const grass_step_sound = new THREE.Audio(listener);
-
-const audioLoader = new THREE.AudioLoader();
-
-audioLoader.load( '/audio/pistol_shot_2.mp3', function( buffer ) {
-	pistol_shoot_sound.setBuffer( buffer );
-	pistol_shoot_sound.setLoop( false );
-	pistol_shoot_sound.setVolume( 0.3 );
-});
-
-audioLoader.load( '/audio/ambience.mp3', function( buffer ) {
-	ambience_sound.setBuffer( buffer );
-	ambience_sound.setLoop( true );
-	ambience_sound.setVolume( 0.225 );
-    ambience_sound.play()
-});
-
-audioLoader.load( '/audio/reload.mp3', function( buffer ) {
-	pistol_reload_sound.setBuffer( buffer );
-	pistol_reload_sound.setLoop( false );
-	pistol_reload_sound.setVolume( 0.75 );
-});
-
-audioLoader.load( '/audio/impact2.mp3', function( buffer ) {
-	bullet_impact_sound.setBuffer( buffer );
-	bullet_impact_sound.setLoop( false );
-	bullet_impact_sound.setVolume( 0.4 );
-});
-
-audioLoader.load( '/audio/grass_step2.mp3', function( buffer ) {
-	grass_step_sound.setBuffer( buffer );
-	grass_step_sound.setLoop( false );
-	grass_step_sound.setVolume( 0.2 );
-});
-
-let runtime = []
-
-
-
-//////////////////////
-
-
-
-const players = []
+let world = []
 
 // UI
-
 const infoText = document.getElementById("infoText");
 
 // constants
+const dragFactor = 0.99;
 const playerHeight = 1.6
 const groundLevel = playerHeight + 0.5
 const sprintFactor = 1.6
@@ -94,7 +51,6 @@ const gravity = 6.8; // Acceleration due to gravity (in m/s^2)
 const terminalVelocity = 20; // Maximum falling speed to prevent unrealistic acceleration
 
 // FPS
-
 let prevTime = performance.now();
 let frames = 0;
 let fps = 0
@@ -102,7 +58,6 @@ let fps = 0
 let gun = null;
 
 /// AIM
-
 let isADS = false
 let isShooting = false
 
@@ -111,95 +66,38 @@ let rightMouse = false
 
 
 
-///////////////////////////
-
-
-
-
-
 //box
 const geometry = new THREE.BoxGeometry( 2, 2, 2 );
 const material = new THREE.MeshStandardMaterial( { color: 0xff0000 } );
 const cube = new THREE.Mesh( geometry, material );
-cube.castShadow = true
+cube.castShadow = false
 cube.position.y = cube.scale.y + 0.5
 cube.position.x = 5
 
 scene.add(cube)
 
-
+//plane - ground
 const texture = new THREE.TextureLoader().load( "grass.jpg" );
 texture.wrapS = THREE.RepeatWrapping;
 texture.wrapT = THREE.RepeatWrapping;
 texture.repeat.set( 200, 200 );
 
-//plane - ground
 const planeGeo = new THREE.PlaneGeometry(500, 500);
-const planeMat = new THREE.MeshStandardMaterial({ map: texture });
+let planeMat = new THREE.MeshStandardMaterial({ map: texture });
+planeMat = groundMaterial
+//csm.setupMaterial(planeMat);
 const plane = new THREE.Mesh(planeGeo, planeMat);
 plane.rotation.x -= Math.PI/2;
-plane.receiveShadow = true
+plane.receiveShadow = false
 plane.position.y = 0.5
-scene.add(plane); // Added plane to the scene
+scene.add(plane);
 
-// for (let i = 0; i < 100; i++) {
-//     let s = cube.clone()
-//     s.position.x = i + i +2 
-//     scene.add(s)
-// } 
-
-
-// Define your shader code
-const skyVertexShader = `
-    varying vec3 vWorldPosition;
-    void main() {
-        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-        vWorldPosition = worldPosition.xyz;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-`;
-
-const skyFragmentShader = `
-    uniform vec3 topColor;
-    uniform vec3 bottomColor;
-    uniform float offset;
-    uniform float exponent;
-    varying vec3 vWorldPosition;
-    void main() {
-        float h = normalize(vWorldPosition + offset).y;
-        gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
-    }
-`;
-
-// Create the shader material
-const skyUniforms = {
-    topColor: { value: new THREE.Color(0xBDDBFF) },
-    bottomColor: { value: new THREE.Color(0xffffff) },
-    offset: { value: 33 },
-    exponent: { value: 0.6 }
-};
-
-const skyMaterial = new THREE.ShaderMaterial({
-    vertexShader: skyVertexShader,
-    fragmentShader: skyFragmentShader,
-    uniforms: skyUniforms,
-    side: THREE.BackSide // Render the material on the back side of the mesh
-});
-
-// Create a sphere geometry to represent the sky
-const skyGeometry = new THREE.SphereGeometry(1000, 0, 0);
-
-// Create the sky mesh using the sphere geometry and the shader material
-const sky = new THREE.Mesh(skyGeometry, skyMaterial);
-
-// Add the sky to the scene
 scene.add(sky);
-
 //light
 var light = new THREE.DirectionalLight(0xffffff);
 light.position.set(0, 2, 2);
 light.target.position.set(0, 0, 0);
-var d = 5;
+var d = 50;
 light.castShadow = true;
 light.shadow.camera.left = - d;
 light.shadow.camera.right = d;
@@ -217,7 +115,7 @@ scene.add(light);
 
 
 
-const ambient = new THREE.AmbientLight(0x404040, 3)
+const ambient = new THREE.AmbientLight(0x404040, 10)
 scene.add(ambient)
 
 
@@ -244,16 +142,12 @@ let controls = new PointerLockControls( camera, document.body );
 const clock = new THREE.Clock();
 
 
-const dragFactor = 0.99;
-
-//const player = cube;
-
 const playerGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1.8, 32);
 const playerMaterial = new THREE.MeshStandardMaterial({color: 0x00ff00});
 
 // Player mesh
 const playerObj = new THREE.Mesh(playerGeometry, playerMaterial);
-playerObj.castShadow = true
+playerObj.castShadow = false
 
 // Position the player (e.g., at ground level)
 playerObj.position.set(0, groundLevel, 0); // Half the height of the cylinder to start at ground level
@@ -264,121 +158,48 @@ scene.add(playerObj);
 const player = playerObj
 player.health = 100;
 player.hunger = 100;
+player.isWalking = false;
+player.isSprinting = false;
 
-//player.add(gun)
-//console.log(gun)
+let pistol = await createPistol(15, raycaster, camera, scene)
+world.push(pistol)
 
-for (let i = 0; i < 0; i++) {
-    let geo = new THREE.CylinderGeometry(0.5, 0.5, 1.8, 32);
-    let mat = new THREE.MeshStandardMaterial({color: 0x00ff00});
-
-    // Player mesh
-    let obj = new THREE.Mesh(geo, mat);
-
-    obj.health = 100
-    obj.canTakeDamage = true
-
-    scene.add(obj)
-
-    obj.position.set(randomBetween(-50, 50), 1.8, randomBetween(-50, 50))
-
-    obj.update = () => {
-        let dir = player.position.clone().sub(obj.position).normalize()
-        dir.y = 0
-        obj.position.add(dir.multiplyScalar(0.01))
-    }
-
-    obj.damage = (dmg) => {
-        if(obj.health > 0) {
-          obj.health -= dmg
-          console.log(obj.health)
-        }
-        else {
-            obj.doDie()
-        }
-    }
-
-    obj.doDie = () => {
-        scene.remove(obj)
-    }
-
-    runtime.push(obj)
-
-
+player.inventory = {
+    "Bullet": { quantity: 500 },
+    "Pistol": pistol
 }
 
+let hotBar = Array(9).fill(null);
+hotBar[0] = player.inventory["Pistol"]
+let selectedSlot = -1;
+let selectedItem = null;
+let prevSelectedItem = null
 
 
+console.log(hotBar, "hotbar");
 
+for (let i = 0; i < 0; i++) {
+    let temp = await createEnemyPrefab(scene, world)
+
+    temp.setTarget(player)
+    temp.setPosition(randomBetween(-50,50), 0.5, randomBetween(-50,50))
+
+    scene.add(temp)
+    world.push(temp)
+}
 
 let playerVelocity = new THREE.Vector3();
 
 
-loader.load(
-    'models/gun3.glb',
-    function ( gltf ) {
-        let model = gltf.scene
-        scene.add( model );
-
-        gun = model
-        gun.ammo = 15
-
-        gun.slide = gun.getObjectByName('Slide')
-        console.log(gun.slide)
-    },
-    // Optional progress callback
-    function ( xhr ) {
-        console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
-    },
-    // Optional error callback
-    function ( error ) {
-        console.error( 'Error loading GLB model', error );
-    }
-);
 
 loader.load(
-    'models/person.glb',
+    'models/stone.glb',
     function ( gltf ) {
+        for(let i = 0; i < 50; i++) {
+            let model = gltf.scene.clone()
+            scene.add( model );
 
-        for (let i = 0; i < 10; i++) {
-            let obj = gltf.scene.clone()
-            scene.add( obj );
-
-
-            obj.head = obj.getObjectByName('Head')
-            obj.health = 100
-            obj.canTakeDamage = true
-
-
-            obj.position.set(randomBetween(-50, 50), 0.5, randomBetween(-50, 50))
-
-            obj.update = () => {
-                if(obj.health <= 0) {
-                    obj.doDie()
-                }
-                obj.lookAt(player.position.clone().setY(0))
-                
-                let dir = player.position.clone().sub(obj.position).normalize()
-                dir.y = 0
-                obj.position.add(dir.multiplyScalar(0.01))
-            }
-
-            obj.damage = (dmg) => {
-                if(obj.health > 0) {
-                    obj.health -= dmg
-                    console.log(obj.health)
-                }
-                else {
-                    obj.doDie()
-                }
-            }
-
-            obj.doDie = () => {
-                runtime.splice(runtime.indexOf(obj), 1)
-                scene.remove(obj)
-            }
-
-            runtime.push(obj)
+            model.position.set(randomBetween(-100, 100), 0.5, randomBetween(-100, 100))
         }
     },
     // Optional progress callback
@@ -391,11 +212,124 @@ loader.load(
     }
 );
 
+//scene.fog = new THREE.Fog( 0xcccccc, 10, 15 );
 
+// Trees
+loader.load(
+    'models/tree.glb',
+    function ( gltf ) {
+        for(let i = 0; i < 500; i++) {
+            let model = gltf.scene.clone()
+            
+            model.traverse((child) => {
+                child.root = model
+            })
 
-//scene.add( cube );
+            scene.add( model );
+            
+            model.scale.set(1, randomBetween(0.4, 1.3), 1)
+            model.position.set(randomBetween(-50, 50), 0.5, randomBetween(-50, 50))
+            model.health = 100
+            model.canTakeDamage = true
+            model.dying = false
+            
+            let elapsedTime = 0
 
-//camera.position.z = 5;
+            model.update = (delta) => {
+                if(model.health <= 0 && !model.dying) {
+                    model.doDie()
+                }
+
+                if (model.dying) {
+                    const targetRotation = { x: Math.PI / 2, y: model.rotation.y, z: model.rotation.z };
+                    const animationDuration = 10.0;
+                
+                    // Calculate the normalized time 't' based on elapsed time and animation duration
+                    let t = Math.min(1, elapsedTime / animationDuration);
+                
+                    // Apply ease-out easing function to 't'
+                    t = 1 - Math.pow(1 - t, 2); // Square the normalized time to apply ease-out
+                
+                    // Interpolate the rotations with eased 't'
+                    model.rotation.x = THREE.MathUtils.lerp(model.rotation.x, targetRotation.x, t);
+                    model.rotation.y = THREE.MathUtils.lerp(model.rotation.y, targetRotation.y, t);
+                    model.rotation.z = THREE.MathUtils.lerp(model.rotation.z, targetRotation.z, t);
+                
+                    // Increment elapsed time by the fixed delta time
+                    elapsedTime += delta;
+
+                    if(t >= 1) {
+                        world.splice(world.indexOf(model), 1)
+                        scene.remove(model)
+                    }
+                }
+            }
+
+            model.damage = (dmg) => {
+                model.health -= dmg
+            }
+
+            model.doDie = () => {
+                if(tree_fall_sound.isPlaying) {
+                    tree_fall_sound.stop()
+                }
+
+                tree_fall_sound.setDetune(randomBetween(200, -200))
+                tree_fall_sound.play()
+                model.dying = true
+
+                if(player.inventory["Wood"]) {
+                    player.inventory["Wood"].quantity = player.inventory["Wood"].quantity + 200
+                }
+                else {
+                    player.inventory["Wood"] = { quantity: 200 }
+                }
+            };
+            
+
+            world.push(model)
+        }
+    },
+    // Optional progress callback
+    function ( xhr ) {
+        console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+    },
+    // Optional error callback
+    function ( error ) {
+        console.error( 'Error loading GLB model', error );
+    }
+);
+
+loader.load(
+    'models/bush.glb',
+    function ( gltf ) {
+        for(let i = 0; i < 250; i++) {
+            let model = gltf.scene.clone()
+            
+            model.traverse((child) => {
+                child.root = model
+            })
+
+            scene.add( model );
+            
+            let factor = randomBetween(0.4, 1.3)
+            model.scale.set(factor, factor, factor)
+            model.position.set(randomBetween(-100, 100), 0.5, randomBetween(-100, 100))
+            //model.health = 100
+            //model.canTakeDamage = true
+
+            //model.rotateX(Math.PI / 2)
+        }
+    },
+    // Optional progress callback
+    function ( xhr ) {
+        console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+    },
+    // Optional error callback
+    function ( error ) {
+        console.error( 'Error loading GLB model', error );
+    }
+);
 
 const isMoving = () => {
     return keyW || keyA || keyS || keyD
@@ -425,17 +359,21 @@ const handleDebug = () => {
     }
 }
 
+const canSprint = () => {
+    return !rightMouse && keyShift
+}
+
 const isGrounded = () => {
     return player.position.y <= groundLevel
   }
 
 let lastStepPlayed = performance.now();
 
-const handleMovement = (deltaTime) => {
+const handleMovement = (deltaTime, elapsedTime) => {
 
     let current = performance.now()
 
-    let footstepDelay = keyShift ? 300 : 500;
+    let footstepDelay = canSprint() ? 300 : 500;
 
     if (current - lastStepPlayed > footstepDelay && isGrounded() && isMoving()) {
         if (grass_step_sound.isPlaying) {
@@ -461,7 +399,7 @@ const handleMovement = (deltaTime) => {
 
     let speed = movementSpeed;
 
-    if(keyShift) {
+    if(canSprint()) {
         speed = movementSpeed * sprintFactor;
     }
 
@@ -494,21 +432,29 @@ const handleMovement = (deltaTime) => {
             isJumping = false; // Stop jumping
         }
     }
-    
 
-    
+    player.isWalking = isMoving()
+    player.isSprinting = isMoving() && keyShift
 };
 
 const handleUI = () => {
+    let inventoryInfo = "Inventory: <br>";
+
+    for (const itemName in player.inventory) {
+        const quantity = player.inventory[itemName].quantity;
+        inventoryInfo += `${itemName}: ${quantity}<br>`;
+    }
+
     infoText.innerHTML = `
     FPS: ${fps}<br>
     Position: ${Math.floor(player.position.x)}, ${Math.floor(player.position.y)}, ${Math.floor(player.position.z)}<br>
     Health: ${player.health}<br>
     Ammo: ${gun ? gun.ammo : 0} / 15 (R to reload)<br>
-    Entities: ${runtime.length}`;
-
-
+    Entities: ${world.length}<br>
+    ${inventoryInfo}
+    Selected: ${selectedItem ? selectedItem.name : "Nothing"}`;
 }
+
 
 
 
@@ -534,102 +480,32 @@ const updateCamera = () => {
  
 };
 
-const recoilAmount = 0.05; // Adjust the recoil amount as needed
-const recoilDirection = new THREE.Vector3(0, 0, 1); // Adjust the recoil direction as needed
-let verticalRecoilAmount = (Math.PI / 18) / 4
-
-let hasAppliedRecoil = false; 
-
-const doShoot = () => {
-    if (gun && gun.ammo <= 0) {
-        return;
+const switchSlot = (slot) => {
+    if(!hotBar[slot]) {
+        if(selectedItem) {
+            selectedItem.setActive(false)
+            selectedItem = null
+        }
+        return
     }
 
-    raycaster.setFromCamera(new THREE.Vector2(), camera);
-
-    const objectsToIntersect = scene.children.filter(object => object !== gun);
-
-    const intersects = raycaster.intersectObjects(objectsToIntersect, true);
-
-    if (intersects.length > 0) {
-        const point = intersects[0].point;
-
-        const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-        const material = new THREE.MeshStandardMaterial({ color: 0x000000 });
-        const cube = new THREE.Mesh(geometry, material);
-        cube.position.copy(point);
-
-        scene.add(cube);
-
-        if(intersects[0].object.parent.canTakeDamage) {
-            if(intersects[0].object.name == "Head") {
-                intersects[0].object.parent.damage(100)
-            }
-            else {
-                intersects[0].object.parent.damage(20)
-            }
-        } 
-
-        if (pistol_shoot_sound.isPlaying || bullet_impact_sound.isPlaying) {
-            pistol_shoot_sound.stop();
-            bullet_impact_sound.stop();
-        }
-
-        pistol_shoot_sound.play();
-        
-
-        // Apply recoil to the gun's position
-        const recoilVector = recoilDirection.clone().multiplyScalar(recoilAmount);
-        gun.position.add(recoilVector);
-
-        const initialSlidePosition = gun.slide.position.clone();
-        gun.slide.position.add(recoilVector)
-
-        let initialCameraRotationX = new THREE.Vector3()
-
-        if (!hasAppliedRecoil) {
-            initialCameraRotationX = camera.rotation.x;
-            hasAppliedRecoil = true;
-            camera.rotateX(verticalRecoilAmount);
-        }
-        
-        setTimeout(() => {
-            gun.slide.position.copy(initialSlidePosition)
-            hasAppliedRecoil = false
-        }, 50)
-
-        gun.ammo -= 1;
-    }
-};
+    selectedSlot = slot
+    selectedItem = hotBar[selectedSlot]
+    console.log(player)
+    selectedItem.setActive(true, player)
+}
 
 
 const doReload = () => {
-    if(gun) {
-        gun.ammo = 15
-        console.log("reloading")
-
-        if(pistol_reload_sound.isPlaying) {
-            pistol_reload_sound.stop()
-        }
-
-        pistol_reload_sound.play()
-
-        const recoilVector = recoilDirection.clone().multiplyScalar(0.06);
-        const initialSlidePosition = gun.slide.position.clone();
-
-        //gun.slide.position.add(new THREE.Vector3(0,0,-1));
-        gun.slide.position.add(recoilVector)
-        
-        setTimeout(() => {
-            gun.slide.position.copy(initialSlidePosition)
-        }, 600)
+    if(selectedItem && selectedItem.item_type === "firearm" && player.inventory["Bullet"].quantity > 0) {
+        selectedItem.reload(player.inventory["Bullet"])
     }
 }
 
-const handleWorld = () => {
-    for (let i = 0; i < runtime.length; i++) {
-        runtime[i].update()
-        //console.log(runtime[i])
+const handleWorld = (delta, elapsedTime) => {
+    for (let i = 0; i < world.length; i++) {
+        world[i].update(delta, elapsedTime)
+        //console.log(world[i])
     }
 }
 
@@ -638,34 +514,38 @@ function animate() {
     requestAnimationFrame(animate);
 
     const deltaTime = clock.getDelta();
-    handleMovement(deltaTime);
+    const elapsedTime = clock.getElapsedTime()
+
+    
 
     handlePhysics(deltaTime);
     handleUI();
 
-    updateCamera();
+    //csm.update(camera.matrix);
 
     handleDebug();
 
-    handleWorld()
+    handleMovement(deltaTime, elapsedTime); // should be before handleWorld of else camera lag
 
-    if (gun) {
-        let target = new THREE.Vector3().copy(handOffset);
+    handleWorld(deltaTime, elapsedTime)
 
-        if (rightMouse) {
-            target = new THREE.Vector3().copy(adsOffset);
-        }
+    // if (gun) {
+    //     let target = new THREE.Vector3().copy(handOffset);
 
-        target.applyQuaternion(camera.quaternion);
-        gun.position.copy(camera.position).add(target);
+    //     if (rightMouse) {
+    //         target = new THREE.Vector3().copy(adsOffset);
+    //     }
 
-        if (leftMouse && gun.ammo > 0) {
-            const recoilVector = recoilDirection.clone().applyQuaternion(gun.quaternion).multiplyScalar(recoilAmount);
-            gun.position.add(recoilVector);
-        }
+    //     target.applyQuaternion(camera.quaternion);
+    //     gun.position.copy(camera.position).add(target);
 
-        gun.rotation.copy(camera.rotation);
-    }
+    //     if (leftMouse && gun.ammo > 0) {
+    //         const recoilVector = recoilDirection.clone().applyQuaternion(gun.quaternion).multiplyScalar(recoilAmount);
+    //         gun.position.add(recoilVector);
+    //     }
+
+    //     gun.rotation.copy(camera.rotation);
+    // }
 
     renderer.render(scene, camera);
 }
@@ -731,7 +611,10 @@ window.addEventListener('click', (e) => {
     }
 
     if(e.button === 0) {
-        doShoot()
+        //doShoot()
+        if(selectedItem) {
+            selectedItem.use()
+        }
     }
 });
 
@@ -742,6 +625,12 @@ window.addEventListener('mousedown', function(event) {
     } else if (event.button === 2) {
         // Right mouse button pressed
         rightMouse = true;
+
+        if(selectedItem) {
+            if(selectedItem.item_type === "firearm") {
+                selectedItem.setAds(true)
+            }
+        }
     }
 });
 
@@ -753,6 +642,12 @@ window.addEventListener('mouseup', function(event) {
     } else if (event.button === 2) {
         // Right mouse button released
         rightMouse = false;
+
+        if(selectedItem) {
+            if(selectedItem.item_type === "firearm") {
+                selectedItem.setAds(false)
+            }
+        }
     }
 });
 
@@ -806,6 +701,11 @@ window.addEventListener("keydown", (event) => {
     }
     if (keyPressed === "shift") {
         keyShift = true;
+    }
+
+
+    if(event.key >= 1 && event.key <= 9) {
+        switchSlot(event.key - 1)
     }
   });
 
