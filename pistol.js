@@ -37,12 +37,13 @@ export async function createPistol(
         item_type: "firearm",
         isActive: false,
         isAds: false,
+        isReloading: false,
         model: gunModel,
         owner: null,
         image: 'items/pistol.jpg',
 
         shoot() {
-            if (this.ammo > 0) {
+            if (this.ammo > 0 && !this.isReloading) {
                 raycaster.setFromCamera(new THREE.Vector2(), camera);
 
                 const objectsToIntersect = scene.children.filter(object => object !== gunModel && !object.ignoreRayHit);
@@ -109,6 +110,7 @@ export async function createPistol(
             }
         },
         reload(bullets) {
+            this.isReloading = true;
             let dif = this.maxAmmo - this.ammo;
 
             let ammo = this.maxAmmo
@@ -135,8 +137,9 @@ export async function createPistol(
             gunModel.slide.position.add(recoilVector)
             
             setTimeout(() => {
+                this.isReloading = false;
                 gunModel.slide.position.copy(initialSlidePosition)
-            }, 600)
+            }, 800)
         },
         use() {
             this.shoot();

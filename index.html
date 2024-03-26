@@ -74,6 +74,39 @@
             border-radius: 50%; /* Example: Make the number a circle */
             font-size: 14px; /* Example: Set font size */
         }
+        #healthBar {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            width: 250px;
+            height: 35px;
+            background-color: rgba(0, 0, 0, 0.4);
+            padding: 6px;
+        }
+
+        #healthSlider {
+            -webkit-appearance: none;
+            width: 100%; /* Adjust width to compensate for any extra spacing */
+            height: 100%;
+            background-color: rgba(139, 195, 74, 1); /* Green color */
+            outline: none;
+            opacity: 1; /* Fully opaque */
+            cursor: default; /* Disable cursor */
+            pointer-events: none; /* Disable mouse interaction */
+            margin: 0; /* Remove any margin */
+            padding: 0; /* Remove any padding */
+            border: none; /* Remove border */
+            box-sizing: border-box; /* Ensure width includes padding and border */
+        }
+
+        #healthSlider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        #healthSlider::-moz-range-thumb {
+            width: 0; /* Remove the thumb for Mozilla Firefox */
+        }
     </style>
 </head>
 <body>
@@ -88,6 +121,9 @@
         <button class="hotBarItem" id="item7" draggable="true"></button>
         <button class="hotBarItem" id="item8" draggable="true"></button>
         <button class="hotBarItem" id="item9" draggable="true"></button>
+    </div>
+    <div id="healthBar">
+        <input type="range" id="healthSlider" min="0" max="100" value="100">
     </div>
     <!-- <div id="inventory">
         <button class="inventoryItem"></button>

@@ -32,6 +32,7 @@ let world = []
 // UI
 const infoText = document.getElementById("infoText");
 const hotbarItems = document.querySelectorAll('.hotBarItem');
+const healthSlider = document.getElementById('healthSlider')
 
 window.addEventListener('contextmenu', (event) => {
     event.preventDefault(); // Prevent the default context menu
@@ -540,19 +541,10 @@ const handleMovement = (deltaTime, elapsedTime) => {
 };
 
 const handleUI = () => {
-    let inventoryInfo = "Inventory: <br>";
-
-    for (const itemName in player.inventory) {
-        const quantity = player.inventory[itemName].quantity;
-        inventoryInfo += `${itemName}: ${quantity}<br>`;
-    }
-
     infoText.innerHTML = `
     FPS: ${fps}<br>
     Position: ${Math.floor(player.position.x)}, ${Math.floor(player.position.y)}, ${Math.floor(player.position.z)}<br>
-    Health: ${player.health}<br>
-    Entities: ${world.length}<br>
-    ${inventoryInfo}`;
+    Entities: ${world.length}<br>`;
 
     
     hotBar.forEach((item, index) => {
@@ -585,11 +577,16 @@ const handleUI = () => {
         }
     });
     
-    
-    
+    // Health slider UI
+    if(player.health <= 20) {
+        healthSlider.style.backgroundColor = 'rgba(203, 26, 26, 0.8)' // red
+    }
+    else {
+        healthSlider.style.backgroundColor = 'rgba(139, 195, 74, 1)' // green
+    }
+
+    healthSlider.style.width = `${player.health}%`
 }
-
-
 
 
 const handlePhysics = (deltaTime) => {
@@ -636,7 +633,9 @@ const switchSlot = (slot) => {
 
 const doReload = () => {
     if(selectedItem && selectedItem.item_type === "firearm" && player.inventory["Bullet"].quantity > 0) {
-        selectedItem.reload(player.inventory["Bullet"])
+        if(!selectedItem.isReloading) {
+            selectedItem.reload(player.inventory["Bullet"])
+        }
     }
 }
 
@@ -645,6 +644,10 @@ const handleWorld = (delta, elapsedTime) => {
         world[i].update(delta, elapsedTime)
         //console.log(world[i])
     }
+}
+
+const respawn = () => {
+    player.position.set(0,2,0);
 }
 
 
@@ -666,6 +669,8 @@ function animate() {
     handleMovement(deltaTime, elapsedTime); // should be before handleWorld of else camera lag
 
     handleWorld(deltaTime, elapsedTime)
+
+    //updateSky()
 
     renderer.render(scene, camera);
 }
@@ -728,6 +733,9 @@ window.addEventListener('click', (e) => {
 });
 
 window.addEventListener('mousedown', function(event) {
+    if(!isPointerLocked) {
+        return
+    }
     if (event.button === 0) {
         // Left mouse button pressed
         leftMouse = true;
@@ -828,6 +836,10 @@ window.addEventListener("keydown", (event) => {
 
     if (keyPressed === "tab") {
         exitPointerLock()
+    }
+
+    if (keyPressed === "t") {
+        respawn()
     }
 
 
