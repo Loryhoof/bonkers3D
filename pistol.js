@@ -23,6 +23,7 @@ export async function createPistol(
     let lerpFactor = 0.5;
 
     let gunModel = await loadGLB('models/gunReal.glb');
+    gunModel = gunModel.scene
     gunModel.slide = gunModel.getObjectByName('Slide')
 
     scene.add(gunModel)
@@ -68,9 +69,9 @@ export async function createPistol(
 
                     if (intersects[0].object.root && intersects[0].object.root.canTakeDamage) {
                         if (intersects[0].object.root.name == "Head") {
-                            intersects[0].object.root.damage(100);
+                            intersects[0].object.root.damage(100), this.item_type;
                         } else {
-                            intersects[0].object.root.damage(this.damage);
+                            intersects[0].object.root.damage(this.damage, this.item_type);
                         }
                     }
 
@@ -153,7 +154,6 @@ export async function createPistol(
             gunModel.visible = bool
             this.owner = owner
             this.isActive = bool
-            console.log(this.owner)
         },
         update(time, elapsedTime) {
             if (!this.isActive || !this.owner) {

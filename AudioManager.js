@@ -9,6 +9,17 @@ const ambience_sound = new THREE.Audio(listener);
 const grass_step_sound = new THREE.Audio(listener);
 const tree_fall_sound = new THREE.Audio(listener);
 
+// Axe - Hatchet
+const axe_hit_1_sound = new THREE.Audio(listener);
+const axe_hit_2_sound = new THREE.Audio(listener);
+const axe_hit_3_sound = new THREE.Audio(listener);
+
+const axeSounds = [
+    axe_hit_1_sound,
+    axe_hit_2_sound,
+    axe_hit_3_sound
+]
+
 const audioLoader = new THREE.AudioLoader();
 
 audioLoader.load( '/audio/pistol_shot_2.mp3', function( buffer ) {
@@ -48,6 +59,24 @@ audioLoader.load( '/audio/tree_fall.mp3', function( buffer ) {
 	tree_fall_sound.setVolume( 0.5 );
 });
 
+audioLoader.load( '/audio/axe_hit_1.mp3', function( buffer ) {
+	axe_hit_1_sound.setBuffer( buffer );
+	axe_hit_1_sound.setLoop( false );
+	axe_hit_1_sound.setVolume( 1 );
+});
+
+audioLoader.load( '/audio/axe_hit_2.mp3', function( buffer ) {
+	axe_hit_2_sound.setBuffer( buffer );
+	axe_hit_2_sound.setLoop( false );
+	axe_hit_2_sound.setVolume( 1 );
+});
+
+audioLoader.load( '/audio/axe_hit_3.mp3', function( buffer ) {
+	axe_hit_3_sound.setBuffer( buffer );
+	axe_hit_3_sound.setLoop( false );
+	axe_hit_3_sound.setVolume( 1 );
+});
+
 export {
     listener,
     pistol_shoot_sound,
@@ -55,5 +84,6 @@ export {
     bullet_impact_sound,
     ambience_sound,
     grass_step_sound,
-    tree_fall_sound
+    tree_fall_sound,
+    axeSounds
 };

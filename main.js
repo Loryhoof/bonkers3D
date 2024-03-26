@@ -10,6 +10,7 @@ import createEnemyPrefab from './Enemy';
 import { groundMaterial } from './ground';
 import { degToRad } from 'three/src/math/MathUtils';
 import { createPistol } from './pistol';
+import { createHatchet } from './hatchet';
 
 const scene = new THREE.Scene()
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
@@ -162,21 +163,22 @@ player.isWalking = false;
 player.isSprinting = false;
 
 let pistol = await createPistol(15, raycaster, camera, scene)
+let hatchet = await createHatchet(raycaster, camera, scene)
 world.push(pistol)
+world.push(hatchet)
 
 player.inventory = {
     "Bullet": { quantity: 500 },
-    "Pistol": pistol
+    "Pistol": pistol,
+    "Hatchet": hatchet
 }
 
 let hotBar = Array(9).fill(null);
 hotBar[0] = player.inventory["Pistol"]
+hotBar[1] = player.inventory["Hatchet"]
 let selectedSlot = -1;
 let selectedItem = null;
-let prevSelectedItem = null
 
-
-console.log(hotBar, "hotbar");
 
 for (let i = 0; i < 0; i++) {
     let temp = await createEnemyPrefab(scene, world)
@@ -265,8 +267,18 @@ loader.load(
                 }
             }
 
-            model.damage = (dmg) => {
+            model.damage = (dmg, item_type) => {
+                if(item_type !== "tool") {
+                    return
+                }
                 model.health -= dmg
+
+                if(player.inventory["Wood"]) {
+                    player.inventory["Wood"].quantity = player.inventory["Wood"].quantity + 20
+                }
+                else {
+                    player.inventory["Wood"] = { quantity: 20 }
+                }
             }
 
             model.doDie = () => {
@@ -277,13 +289,6 @@ loader.load(
                 tree_fall_sound.setDetune(randomBetween(200, -200))
                 tree_fall_sound.play()
                 model.dying = true
-
-                if(player.inventory["Wood"]) {
-                    player.inventory["Wood"].quantity = player.inventory["Wood"].quantity + 200
-                }
-                else {
-                    player.inventory["Wood"] = { quantity: 200 }
-                }
             };
             
 
@@ -474,12 +479,6 @@ const handlePhysics = (deltaTime) => {
 
 }
 
-
-const updateCamera = () => {
-    
- 
-};
-
 const switchSlot = (slot) => {
     if(!hotBar[slot]) {
         if(selectedItem) {
@@ -487,6 +486,11 @@ const switchSlot = (slot) => {
             selectedItem = null
         }
         return
+    }
+
+    if(slot != selectedSlot && selectedItem) {
+        selectedItem.setActive(false)
+        selectedItem = null
     }
 
     selectedSlot = slot
@@ -528,24 +532,6 @@ function animate() {
     handleMovement(deltaTime, elapsedTime); // should be before handleWorld of else camera lag
 
     handleWorld(deltaTime, elapsedTime)
-
-    // if (gun) {
-    //     let target = new THREE.Vector3().copy(handOffset);
-
-    //     if (rightMouse) {
-    //         target = new THREE.Vector3().copy(adsOffset);
-    //     }
-
-    //     target.applyQuaternion(camera.quaternion);
-    //     gun.position.copy(camera.position).add(target);
-
-    //     if (leftMouse && gun.ammo > 0) {
-    //         const recoilVector = recoilDirection.clone().applyQuaternion(gun.quaternion).multiplyScalar(recoilAmount);
-    //         gun.position.add(recoilVector);
-    //     }
-
-    //     gun.rotation.copy(camera.rotation);
-    // }
 
     renderer.render(scene, camera);
 }
@@ -590,18 +576,7 @@ document.addEventListener('pointerlockerror', () => {
 
 // Event listener for mouse movement
 document.addEventListener('mousemove', (event) => {
-    if (isPointerLocked) {
-        const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
-        const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
-        
-        // Adjust camera orientation based on mouse movement
-        const sensitivity = 0.002;
-        //camera.rotation.y -= movementX * sensitivity;
-        //camera.rotation.x -= movementY * sensitivity;
-
-        // Limit vertical rotation
-        //camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
-    }
+   
 });
 
 // Event listener for mouse click to enable pointer lock
@@ -612,9 +587,9 @@ window.addEventListener('click', (e) => {
 
     if(e.button === 0) {
         //doShoot()
-        if(selectedItem) {
-            selectedItem.use()
-        }
+        // if(selectedItem) {
+        //     selectedItem.use()
+        // }
     }
 });
 
@@ -622,6 +597,14 @@ window.addEventListener('mousedown', function(event) {
     if (event.button === 0) {
         // Left mouse button pressed
         leftMouse = true;
+        if(selectedItem) {
+            if(selectedItem.item_type === "tool") {
+                selectedItem.setHold(true)
+            }
+            else {
+                selectedItem.use()
+            }
+        }
     } else if (event.button === 2) {
         // Right mouse button pressed
         rightMouse = true;
@@ -639,6 +622,12 @@ window.addEventListener('mouseup', function(event) {
     if (event.button === 0) {
         // Left mouse button released
         leftMouse = false;
+
+        if(selectedItem) {
+            if(selectedItem.item_type === 'tool') {
+                selectedItem.setHold(false)
+            }
+        }
     } else if (event.button === 2) {
         // Right mouse button released
         rightMouse = false;
@@ -704,8 +693,21 @@ window.addEventListener("keydown", (event) => {
     }
 
 
-    if(event.key >= 1 && event.key <= 9) {
-        switchSlot(event.key - 1)
+    const numberKeyMapping = {
+        'Digit1': 1,
+        'Digit2': 2,
+        'Digit3': 3,
+        'Digit4': 4,
+        'Digit5': 5,
+        'Digit6': 6,
+        'Digit7': 7,
+        'Digit8': 8,
+        'Digit9': 9
+    };
+
+    if (event.code.startsWith('Digit')) {
+        const slotNumber = numberKeyMapping[event.code];
+        switchSlot(slotNumber - 1);
     }
   });
 

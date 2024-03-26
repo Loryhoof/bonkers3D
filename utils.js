@@ -6,12 +6,16 @@ export const randomBetween = (min, max) => {
     return Math.random() * (max - min) + min;
 }
 
+export const randomFrom = (arr) => {
+    return arr[Math.floor(Math.random()*arr.length)];
+}
+
 export const loadGLB = async (modelPath) => {
     return new Promise((resolve, reject) => {
         loader.load(
             modelPath,
             function (gltf) {
-                resolve(gltf.scene.clone());
+                resolve(gltf);
             },
             // Optional progress callback
             function (xhr) {
