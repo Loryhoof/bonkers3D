@@ -14,6 +14,13 @@ import { createHatchet } from './hatchet';
 import { createBullet } from './bullet';
 import { createWood } from './wood';
 
+// physics test
+import RAPIER from '@dimforge/rapier3d';
+import { createBoxCollider, createCharacterController, createDynamicBox, createFixedBox, createPlayerCapsule, createRigidbody, setLinearVelocity } from './physics';
+
+const grav = {x:0.0, y:-9.81, z:0.0}
+const physicsWorld = new RAPIER.World(grav)
+
 const scene = new THREE.Scene()
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
 
@@ -95,8 +102,22 @@ hotbarArray.forEach((item) => {
 
 
 
+// RAPIER PHYSICS TEST
+
+let ground = createBoxCollider(100, 0.1, 100, physicsWorld);
+
+let phyCube = createDynamicBox(1, 1, 1, physicsWorld);
+// let phyCube2 = createDynamicBox(1, 1, 1, physicsWorld);
+
+world.push(phyCube)
+scene.add(phyCube)
+
+let { playerRigidbody, playerCollider } = createPlayerCapsule(physicsWorld);
+let playerCharacterController = createCharacterController(physicsWorld);
 
 
+
+//console.log(rb, col, "player stuff")
 
 
 
@@ -164,6 +185,7 @@ const plane = new THREE.Mesh(planeGeo, planeMat);
 plane.rotation.x -= Math.PI/2;
 plane.receiveShadow = false
 plane.position.y = 0.5
+
 scene.add(plane);
 
 scene.add(sky);
@@ -273,7 +295,7 @@ let playerVelocity = new THREE.Vector3();
 loader.load(
     'models/stone.glb',
     function ( gltf ) {
-        for(let i = 0; i < 50; i++) {
+        for(let i = 0; i < 0; i++) {
             let model = gltf.scene.clone()
             scene.add( model );
 
@@ -293,7 +315,7 @@ loader.load(
 loader.load(
     'models/house.glb',
     function ( gltf ) {
-        for(let i = 0; i < 10; i++) {
+        for(let i = 0; i < 0; i++) {
             let model = gltf.scene.clone()
             scene.add( model );
 
@@ -330,6 +352,9 @@ loader.load(
             model.health = 100
             model.canTakeDamage = true
             model.dying = false
+
+            let phyBox = createFixedBox(new THREE.Vector3(0.5, 5, 0.5), model.position, physicsWorld)
+            scene.add(phyBox)
             
             let elapsedTime = 0
 
@@ -595,17 +620,23 @@ const handleUI = () => {
 
 const handlePhysics = (deltaTime) => {
 
-    let displacement = playerVelocity.clone().multiplyScalar(deltaTime)
 
-    player.position.add(displacement)
+    let {x, y, z} = playerRigidbody.translation()
+    player.position.set(x, y, z)
 
-    playerVelocity.multiplyScalar(dragFactor);
+    let displacement = playerVelocity.clone().multiplyScalar(deltaTime * 100)
+    setLinearVelocity(playerRigidbody, new RAPIER.Vector3(displacement.x, displacement.y, displacement.z))
 
-    //fake gravity
-    if(player.position.y > groundLevel) {
-        const gravityForce = gravity * deltaTime;
-        player.position.y -= gravityForce;
-    }
+    // player.position.add(displacement)
+
+    // playerVelocity.multiplyScalar(dragFactor);
+
+    // //fake gravity
+    // if(player.position.y > groundLevel) {
+    //     const gravityForce = gravity * deltaTime;
+    //     player.position.y -= gravityForce;
+    // }
+    
 
 }
 
@@ -689,6 +720,7 @@ function animate() {
     handleWorld(deltaTime, elapsedTime)
 
     //updateSky()
+    physicsWorld.step();
 
     renderer.render(scene, camera);
 }
